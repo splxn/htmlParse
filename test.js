@@ -1,29 +1,55 @@
 "use strict";
-var fs = require('fs');
+const fs = require('fs');
 
-var regex = /<([^>]+)>(.|\s)*?<\/\1>/g;
+function parseHTML(file) {
 
-function processHTML(file) {
-
-  fs.readFile(file, 'utf8', (err, body) => {
-    if (err) throw err;
-    var arr = [];
-
-    var parsed = body.match(regex);
-
-    parsed.forEach(function getObj(item) {
-
-      var test = {};
-      test.tag = item.match(/[a-z0-9]+/)[0];
-      test.content = item
-        .replace(/^<([a-z0-9]+)>/g, "")
-        .replace(/<\/[a-z0-9]+>$/g, "")
-        .trim();
-      arr.push(test);
-      console.log(test.content);
+  function readHTML() {
+    return new Promise((resolve, reject) => {
+      fs.readFile(file, 'utf8', (err, body) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(body);
+      });
     });
-    console.log(arr);
-  });
+  }
+
+  function parseHTMLRecursive(body) {
+
+    const regex = /<([a-z0-9]+)([^>]*)?>(.|\s)*?<\/\1>/g;
+
+    let parsed = body.match(regex);
+
+    let arrElems = [];
+
+    if (!regex.test(body)) {
+      return body;
+    } else {
+
+      parsed.forEach((item) => {
+        let elem = {};
+        elem.tag = item.match(/([a-z0-9]+)/)[0];
+        elem.children = [];
+
+        let child = item
+          .replace(/^<([a-z0-9]+)([^>]*)?>/g, "")
+          .replace(/<\/[a-z0-9]+>$/g, "")
+          .trim();
+
+        elem.children = parseHTMLRecursive(child);
+        arrElems.push(elem);
+      });
+      return arrElems;
+    }
+  }
+
+  readHTML()
+    .then(parseHTMLRecursive)
+    .then((value) => console.log(JSON.stringify(value, null, 2)))
+    .catch(function(err) {
+      throw new Error('Cannot read file');
+    })
 }
 
-processHTML('index.html');
+parseHTML('index.html');
